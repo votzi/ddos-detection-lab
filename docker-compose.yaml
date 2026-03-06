@@ -10,14 +10,11 @@ services:
      - INFLUXDB_HOST=influxdb
      - INFLUXDB_POLLTIME=30
      - PROMETHEUS_POLLTIME=30
-#    command: "scripts/learning_switch_tree.py --observe-links"
-#    command: 
-#      - scripts/dc_switch_1.py
-#      - --observe-links
-    command: "scripts/dc_switch_1.py scripts/monitor_influxdb.py \
-          scripts/monitor_graphite.py scripts/monitor_prometheus.py --observe-links"
+    entrypoint: ["/bin/sh", "/home/auser/scripts/start_ryu_ml.sh"]
+    command: scripts/dc_switch_1.py scripts/ml_defender.py scripts/monitor_influxdb.py scripts/monitor_graphite.py scripts/monitor_prometheus.py --observe-links
     volumes:
-     - ./scripts:/home/auser/scripts
+      - ./scripts:/home/auser/scripts
+      - ./models:/home/auser/models
     ports:
      - "6633"  # Controller port
      - "6653"  # Controller port
@@ -52,7 +49,7 @@ services:
     ports:
      - "2003-2004"
      - "2023-2024"
-     - "9000:80"
+     - "8081:80"
     profiles:
       - graphite
       - monitor
