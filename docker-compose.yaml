@@ -10,7 +10,6 @@ services:
      - INFLUXDB_HOST=influxdb
      - INFLUXDB_POLLTIME=30
      - PROMETHEUS_POLLTIME=30
-    entrypoint: ["/bin/sh", "/home/auser/scripts/start_ryu_ml.sh"]
     command: scripts/dc_switch_1.py scripts/ml_defender.py scripts/monitor_influxdb.py scripts/monitor_graphite.py scripts/monitor_prometheus.py --observe-links
     volumes:
       - ./scripts:/home/auser/scripts

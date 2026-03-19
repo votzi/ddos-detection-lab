@@ -1,5 +1,8 @@
 FROM martimy/ryu-flowmanager
 
-RUN pip install scikit-learn joblib pandas numpy --quiet
+RUN pip install --no-cache-dir \
+    scikit-learn==0.22 \
+    joblib \
+    numpy
 
 WORKDIR /home/auser

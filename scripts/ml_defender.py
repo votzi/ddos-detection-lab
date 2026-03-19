@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ML Defense System for Ryu Controller
-Detecta ataques usando el modelo Decision Tree y toma contramedidas automáticas
+Detecta ataques usando las reglas del Decision Tree y toma contramedidas automáticas
 
 Uso: Agregar al comando del controller en docker-compose.yaml
 command: "scripts/dc_switch_1.py scripts/ml_defender.py --observe-links"
@@ -9,12 +9,7 @@ command: "scripts/dc_switch_1.py scripts/ml_defender.py --observe-links"
 
 import os
 import time
-try:
-    import joblib
-    HAS_JOBLIB = True
-except ImportError:
-    HAS_JOBLIB = False
-    print("⚠️ joblib no disponible, usando detección por umbrales")
+import json
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -30,7 +25,7 @@ from ryu.lib.packet import icmp
 from ryu.lib import hub
 from base_switch import BaseSwitch
 
-MODEL_PATH = os.getenv("MODEL_PATH", "/home/auser/models/ddos_dt_model.pkl")
+RULES_PATH = os.getenv("RULES_PATH", "/home/auser/scripts/dt_rules.json")
 
 FEATURE_COLUMNS = [
     'rx_pkts', 'tx_pkts', 'rx_bytes', 'tx_bytes',
@@ -49,7 +44,7 @@ ATTACK_STATS = {}
 
 class MLDefense(BaseSwitch):
     """
-    Sistema de defensa basado en ML con Decision Tree
+    Sistema de defensa basado en ML con Decision Tree (reglas exportadas)
     Detecta ataques y toma contramedidas automáticamente
     """
 
@@ -58,39 +53,62 @@ class MLDefense(BaseSwitch):
     def __init__(self, *args, **kwargs):
         super(MLDefense, self).__init__(*args, **kwargs)
         self.datapaths = {}
-        self.model = None
-        self.load_model()
+        self.dt_rules = None
+        self.load_rules()
         self.monitor_thread = hub.spawn(self._monitor)
         
         print("=" * 60)
         print("🛡️  ML DEFENSE SYSTEM - Decision Tree")
         print("=" * 60)
-        print(f"Modelo: {MODEL_PATH}")
+        print(f"Reglas: {RULES_PATH}")
         print(f"Polltime: {POLL_TIME}s")
         print(f"Umbral DDoS: {DdosThreshold} PPS")
         print(f"Block timeout: {BLOCK_TIMEOUT}s")
         print(f"Contramedidas: Bloqueo automático + Desbloqueo")
         print("=" * 60)
 
-    def load_model(self):
-        """Cargar el modelo Decision Tree entrenado"""
-        if not HAS_JOBLIB:
-            print("⚠️ joblib no disponible, usando detección por umbrales")
-            self.model = None
-            return
-            
+    def load_rules(self):
+        """Cargar las reglas del Decision Tree exportadas"""
         try:
-            if os.path.exists(MODEL_PATH):
-                self.model = joblib.load(MODEL_PATH)
-                print(f"✅ Modelo Decision Tree cargado: {MODEL_PATH}")
-                print(f"   Tipo: {type(self.model).__name__}")
+            if os.path.exists(RULES_PATH):
+                with open(RULES_PATH, 'r') as f:
+                    data = json.load(f)
+                    self.dt_rules = data['rules']
+                    print(f"✅ Reglas DT cargadas: {len(self.dt_rules)} reglas")
             else:
-                print(f"⚠️ Modelo no encontrado: {MODEL_PATH}")
+                print(f"⚠️ Reglas no encontradas: {RULES_PATH}")
                 print("⚠️ Usando detección por umbrales")
-                self.model = None
+                self.dt_rules = None
         except Exception as e:
-            print(f"❌ Error al cargar modelo: {e}")
-            self.model = None
+            print(f"❌ Error al cargar reglas: {e}")
+            self.dt_rules = None
+
+    def predict_dt(self, features):
+        """Predicción usando las reglas exportadas del DT"""
+        if not self.dt_rules:
+            return None
+            
+        sample = dict(zip(FEATURE_COLUMNS, features))
+        
+        for rule in self.dt_rules:
+            match = True
+            for condition in rule['path']:
+                feature = condition['feature']
+                value = sample.get(feature, 0)
+                
+                if condition['op'] == '<=':
+                    if not (value <= condition['threshold']):
+                        match = False
+                        break
+                else:
+                    if not (value > condition['threshold']):
+                        match = False
+                        break
+            
+            if match:
+                return rule['prediction']
+        
+        return 0
 
     def _monitor(self):
         """Monitoreo continuo del tráfico"""
@@ -234,9 +252,9 @@ class MLDefense(BaseSwitch):
             is_attack = False
             attack_type = "NORMAL"
             
-            if self.model is not None:
+            if self.dt_rules is not None:
                 try:
-                    prediction = self.model.predict([features])[0]
+                    prediction = self.predict_dt(features)
                     
                     if prediction == 1:
                         is_attack = True
